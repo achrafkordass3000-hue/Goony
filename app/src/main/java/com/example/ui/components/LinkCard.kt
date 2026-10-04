@@ -147,11 +147,11 @@ fun LinkCard(
         }
     }
 
-    // 4) Unified Overlay Animation Spec
+    // 4) Unified Overlay Animation Spec: Soft, slower staggered cascade with zoom & fade
     val overlayAnimationSpec = if (isOverlayActive) {
-        tween<Float>(durationMillis = 220, easing = FastOutSlowInEasing)
+        tween<Float>(durationMillis = 420, easing = CubicBezierEasing(0.22f, 1.0f, 0.36f, 1.0f))
     } else {
-        tween<Float>(durationMillis = 180, easing = FastOutSlowInEasing)
+        tween<Float>(durationMillis = 220, easing = FastOutLinearInEasing)
     }
 
     val menuProgress by animateFloatAsState(
@@ -408,18 +408,12 @@ fun LinkCard(
                 }
             }
 
-            // Smooth Scrim Layer with simple fade in/out
-            val scrimAlpha by animateFloatAsState(
-                targetValue = if (isOverlayActive) 1f else 0f,
-                animationSpec = overlayAnimationSpec,
-                label = "scrim_alpha"
-            )
-
-            if (scrimAlpha > 0f) {
+            // Smooth Scrim Layer driven directly by menuProgress (Zero extra animation loops)
+            if (menuProgress > 0.001f) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .graphicsLayer { alpha = scrimAlpha }
+                        .graphicsLayer { alpha = menuProgress }
                         .background(VaultScrims.Overlay) // BG-FIX
                         .clickable(
                             enabled = isOverlayActive,
@@ -431,36 +425,35 @@ fun LinkCard(
                 )
             }
 
-            // Smooth Native Zoom & Pop-up transition (Harmonious single scale & fade)
+            // Smooth Native Zoom & Staggered Bottom-to-Top rise transition (Lightweight & hardware-accelerated)
             if (isOverlayVisible) {
-                CompositionLocalProvider(LocalActionsInteractive provides isOverlayActive) {
+                CompositionLocalProvider(
+                    LocalActionsInteractive provides isOverlayActive,
+                    LocalActionMenuProgress provides menuProgress
+                ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .align(Alignment.Center)
-                            .graphicsLayer {
-                                alpha = menuProgress
-                                val s = lerp(0.92f, 1f, menuProgress)
-                                scaleX = s
-                                scaleY = s
-                            }
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         AnimatedContent(
                             targetState = if (isOverlayActive) currentMenuState else lastOpenMenuState,
                             transitionSpec = {
-                                (fadeIn(animationSpec = tween(180, easing = FastOutSlowInEasing)) +
+                                (slideInVertically(animationSpec = tween(220, easing = FastOutSlowInEasing)) { height -> height / 3 } +
                                         scaleIn(
-                                            initialScale = 0.94f,
-                                            animationSpec = tween(180, easing = FastOutSlowInEasing)
-                                        ))
+                                            initialScale = 0.88f,
+                                            animationSpec = tween(220, easing = FastOutSlowInEasing)
+                                        ) +
+                                        fadeIn(animationSpec = tween(200)))
                                     .togetherWith(
-                                        fadeOut(animationSpec = tween(120, easing = FastOutLinearInEasing)) +
+                                        slideOutVertically(animationSpec = tween(170, easing = FastOutLinearInEasing)) { height -> height / 3 } +
                                                 scaleOut(
-                                                    targetScale = 0.94f,
-                                                    animationSpec = tween(120, easing = FastOutLinearInEasing)
-                                                )
+                                                    targetScale = 0.88f,
+                                                    animationSpec = tween(170, easing = FastOutLinearInEasing)
+                                                ) +
+                                                fadeOut(animationSpec = tween(150))
                                     )
                             },
                             contentAlignment = Alignment.Center,
@@ -554,7 +547,7 @@ fun LinkCard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // All actors list
-                            link.actorIds.forEach { actorId ->
+                            link.actorIds.forEachIndexed { idx, actorId ->
                                 val actorEntity = fullActorsMap[actorId] ?: fullActorsMap[actorId.trim().lowercase()]
                                 val actorName = actorsMap[actorId] ?: actorEntity?.name ?: actorId
                                 val actorImg = actorEntity?.imageUrl ?: ""
@@ -567,6 +560,11 @@ fun LinkCard(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(6.dp),
                                     modifier = Modifier
+                                        .staggeredActionEntrance(
+                                            progress = menuProgress,
+                                            indexFromLeft = idx,
+                                            totalItems = link.actorIds.size
+                                        )
                                         .padding(horizontal = 4.dp)
                                         .width(72.dp)
                                         .clip(RectangleShape)

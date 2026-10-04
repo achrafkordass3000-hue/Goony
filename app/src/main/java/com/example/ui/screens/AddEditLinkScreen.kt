@@ -113,7 +113,7 @@ fun AddEditLinkScreen(
         sdf.format(Date(assignedDate))
     }
 
-    // Material 3 DatePickerDialog
+    // Material 3 DatePickerDialog with Rounded Corners & Themed Styling
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = assignedDate
@@ -127,19 +127,44 @@ fun AddEditLinkScreen(
                             assignedDate = selected
                         }
                         showDatePicker = false
-                    }
+                    },
+                    shape = CircleShape
                 ) {
                     Text("OK", color = accent, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
+                TextButton(
+                    onClick = { showDatePicker = false },
+                    shape = CircleShape
+                ) {
+                    Text("Cancel", color = palette.textSecondary)
                 }
             },
-            shape = RoundedCornerShape(24.dp)
+            shape = RoundedCornerShape(28.dp),
+            colors = DatePickerDefaults.colors(
+                containerColor = palette.cardBg
+            )
         ) {
-            DatePicker(state = datePickerState)
+            DatePicker(
+                state = datePickerState,
+                colors = DatePickerDefaults.colors(
+                    containerColor = palette.cardBg,
+                    titleContentColor = palette.textPrimary,
+                    headlineContentColor = palette.textPrimary,
+                    weekdayContentColor = palette.textSecondary,
+                    subheadContentColor = palette.textSecondary,
+                    yearContentColor = palette.textPrimary,
+                    currentYearContentColor = accent,
+                    selectedYearContentColor = Color.White,
+                    selectedYearContainerColor = accent,
+                    dayContentColor = palette.textPrimary,
+                    selectedDayContentColor = Color.White,
+                    selectedDayContainerColor = accent,
+                    todayContentColor = accent,
+                    todayDateBorderColor = accent
+                )
+            )
         }
     }
 
@@ -309,19 +334,15 @@ fun AddEditLinkScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(
+                SceneInputField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Title *") },
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                    placeholder = "Title *",
                     trailingIcon = {
                         PasteTrailingIcon(onPaste = { title = it })
                     },
-                    shape = fieldShape,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("scene_title_input")
+                    modifier = Modifier.weight(1f),
+                    testTag = "scene_title_input"
                 )
 
                 // Round Fetch Magnet Button (~48dp circle, vertically centered with Title)
@@ -441,7 +462,7 @@ fun AddEditLinkScreen(
                 }
             }
 
-            // 2. Date & Cover on the Same Row (Comfortable Natural Height)
+            // 2. Date & Cover on the Same Row (Same 48.dp Height)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -456,49 +477,42 @@ fun AddEditLinkScreen(
                     }
                 }
 
-                OutlinedTextField(
+                SceneInputField(
                     value = formattedAssignedDate,
                     onValueChange = { },
                     readOnly = true,
-                    label = { Text("Date") },
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                    placeholder = "Date",
                     interactionSource = dateInteractionSource,
                     trailingIcon = {
                         IconButton(
                             onClick = { showDatePicker = true },
                             modifier = Modifier
-                                .padding(end = 6.dp)
-                                .size(38.dp)
+                                .padding(end = 4.dp)
+                                .size(36.dp)
+                                .clip(CircleShape)
                         ) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_app_calendar),
                                 contentDescription = "Select Date",
                                 tint = palette.textSecondary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     },
-                    shape = fieldShape,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("scene_date_input")
+                    modifier = Modifier.weight(1f),
+                    testTag = "scene_date_input"
                 )
 
                 // Cover Input (Paste Button, No X button)
-                OutlinedTextField(
+                SceneInputField(
                     value = coverImage,
                     onValueChange = { coverImage = it },
-                    label = { Text("Cover") },
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                    placeholder = "Cover",
                     trailingIcon = {
                         PasteTrailingIcon(onPaste = { coverImage = it })
                     },
-                    shape = fieldShape,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("cover_image_input")
+                    modifier = Modifier.weight(1f),
+                    testTag = "cover_image_input"
                 )
             }
 
@@ -555,7 +569,7 @@ fun AddEditLinkScreen(
                 }
             }
 
-            // 4. Stream Section (HD/4K Magnets in 1 row, HD/4K URLs in 1 row) - Clean Visual Spacing
+            // 4. Stream Section (HD/4K Magnets in 1 row, HD/4K URLs in 1 row) - Clean 48.dp Heights
             Text(
                 text = "Stream",
                 color = palette.textPrimary,
@@ -568,33 +582,25 @@ fun AddEditLinkScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
+                SceneInputField(
                     value = magnetHD,
                     onValueChange = { magnetHD = it },
-                    label = { Text("HD Magnet") },
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                    placeholder = "HD Magnet",
                     trailingIcon = {
                         PasteTrailingIcon(onPaste = { magnetHD = it })
                     },
-                    shape = fieldShape,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("hd_magnet_input")
+                    modifier = Modifier.weight(1f),
+                    testTag = "hd_magnet_input"
                 )
-                OutlinedTextField(
+                SceneInputField(
                     value = magnet4K,
                     onValueChange = { magnet4K = it },
-                    label = { Text("4K Magnet") },
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                    placeholder = "4K Magnet",
                     trailingIcon = {
                         PasteTrailingIcon(onPaste = { magnet4K = it })
                     },
-                    shape = fieldShape,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("4k_magnet_input")
+                    modifier = Modifier.weight(1f),
+                    testTag = "4k_magnet_input"
                 )
             }
 
@@ -603,33 +609,25 @@ fun AddEditLinkScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
+                SceneInputField(
                     value = urlHD,
                     onValueChange = { urlHD = it },
-                    label = { Text("HD URL") },
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                    placeholder = "HD URL",
                     trailingIcon = {
                         PasteTrailingIcon(onPaste = { urlHD = it })
                     },
-                    shape = fieldShape,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("hd_url_input")
+                    modifier = Modifier.weight(1f),
+                    testTag = "hd_url_input"
                 )
-                OutlinedTextField(
+                SceneInputField(
                     value = url4K,
                     onValueChange = { url4K = it },
-                    label = { Text("4K URL") },
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+                    placeholder = "4K URL",
                     trailingIcon = {
                         PasteTrailingIcon(onPaste = { url4K = it })
                     },
-                    shape = fieldShape,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("4k_url_input")
+                    modifier = Modifier.weight(1f),
+                    testTag = "4k_url_input"
                 )
             }
 
@@ -987,6 +985,85 @@ private fun TagMultiSelectDialog(
 }
 
 /**
+ * Uniform Scene Input Field with exact 48.dp height matching the Torrent button diameter.
+ * Guarantees zero vertical text clipping, clean padding, and crisp typography.
+ */
+@Composable
+private fun SceneInputField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    readOnly: Boolean = false,
+    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
+    trailingIcon: @Composable (() -> Unit)? = null,
+    testTag: String = ""
+) {
+    val palette = LocalVaultPalette.current
+    val accent = LocalAccentColor.current
+    var isFocused by remember { mutableStateOf(false) }
+
+    LaunchedEffect(interactionSource) {
+        interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is androidx.compose.foundation.interaction.FocusInteraction.Focus -> isFocused = true
+                is androidx.compose.foundation.interaction.FocusInteraction.Unfocus -> isFocused = false
+            }
+        }
+    }
+
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        readOnly = readOnly,
+        singleLine = true,
+        textStyle = LocalTextStyle.current.copy(
+            fontSize = 14.sp,
+            color = palette.textPrimary,
+            lineHeight = 18.sp
+        ),
+        interactionSource = interactionSource,
+        modifier = modifier
+            .height(48.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(palette.cardBg)
+            .border(
+                width = if (isFocused) 1.5.dp else 1.dp,
+                color = if (isFocused) accent else palette.border,
+                shape = RoundedCornerShape(24.dp)
+            )
+            .testTag(testTag),
+        decorationBox = { innerTextField ->
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = 16.dp, end = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (value.isEmpty()) {
+                        Text(
+                            text = placeholder,
+                            fontSize = 13.5.sp,
+                            color = palette.textMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    innerTextField()
+                }
+                if (trailingIcon != null) {
+                    trailingIcon()
+                }
+            }
+        }
+    )
+}
+
+/**
  * Compact Native Paste Icon Button (Clean icon only)
  */
 @Composable
@@ -994,7 +1071,7 @@ private fun PasteTrailingIcon(
     onPaste: (String) -> Unit
 ) {
     val clipboardManager = LocalClipboardManager.current
-    val accent = LocalAccentColor.current
+    val palette = LocalVaultPalette.current
     IconButton(
         onClick = {
             clipboardManager.getText()?.text?.let { clipText ->
@@ -1004,14 +1081,14 @@ private fun PasteTrailingIcon(
             }
         },
         modifier = Modifier
-            .padding(end = 6.dp)
-            .size(38.dp)
+            .padding(end = 4.dp)
+            .size(36.dp)
     ) {
         Icon(
             painter = painterResource(id = R.drawable.ic_app_paste),
             contentDescription = "Paste from Clipboard",
-            tint = LocalVaultPalette.current.textSecondary,
-            modifier = Modifier.size(19.dp)
+            tint = palette.textSecondary,
+            modifier = Modifier.size(18.dp)
         )
     }
 }

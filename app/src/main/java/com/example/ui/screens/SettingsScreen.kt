@@ -48,7 +48,6 @@ import com.example.ui.components.ColorPalettePicker
 import com.example.ui.components.DataBackupSection
 import com.example.ui.components.IntegrationsDropdownDebridSection
 import com.example.ui.components.NativeThemeSelector
-import com.example.ui.components.NativeTransitionSelector
 import com.example.ui.theme.LocalAccentColor
 import com.example.ui.theme.LocalVaultPalette
 import kotlinx.coroutines.launch
@@ -262,9 +261,28 @@ fun SettingsScreen(
     }
     var currentSection by remember { mutableStateOf(initialSection) }
 
-    // Intercept hardware/gesture back press when inside a sub-category
-    BackHandler(enabled = currentSection != SettingsSection.MAIN_MENU) {
-        currentSection = SettingsSection.MAIN_MENU
+    val sectionBackStack = remember { mutableStateListOf<SettingsSection>() }
+
+    fun navigateToSection(target: SettingsSection) {
+        if (target != currentSection) {
+            sectionBackStack.add(currentSection)
+            currentSection = target
+        }
+    }
+
+    fun handleBack() {
+        if (sectionBackStack.isNotEmpty()) {
+            currentSection = sectionBackStack.removeAt(sectionBackStack.size - 1)
+        } else if (currentSection != SettingsSection.MAIN_MENU) {
+            currentSection = SettingsSection.MAIN_MENU
+        } else {
+            viewModel.navigateBack()
+        }
+    }
+
+    // Intercept hardware/gesture back press when inside a sub-category or when backstack has items
+    BackHandler(enabled = currentSection != SettingsSection.MAIN_MENU || sectionBackStack.isNotEmpty()) {
+        handleBack()
     }
 
     val screenTitle = when (currentSection) {
@@ -298,62 +316,20 @@ fun SettingsScreen(
                         targetState = currentSection,
                         transitionSpec = {
                             val isBack = targetState == SettingsSection.MAIN_MENU
-                            when (currentSettings.transitionStyle) {
-                                1 -> {
-                                    if (isBack) {
-                                        (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
-                                                fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
-                                            .togetherWith(
-                                                slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> width / 4 } +
-                                                        fadeOut(animationSpec = tween(170))
-                                            )
-                                    } else {
-                                        (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
-                                                fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
-                                            .togetherWith(
-                                                slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
-                                                        fadeOut(animationSpec = tween(170))
-                                            )
-                                    }
-                                }
-                                2 -> {
-                                    if (isBack) {
-                                        (fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing)) +
-                                                scaleIn(initialScale = 1.03f, animationSpec = tween(220, easing = LinearOutSlowInEasing)))
-                                            .togetherWith(
-                                                fadeOut(animationSpec = tween(180, easing = FastOutLinearInEasing)) +
-                                                        scaleOut(targetScale = 0.97f, animationSpec = tween(180, easing = FastOutLinearInEasing))
-                                            )
-                                    } else {
-                                        (fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing)) +
-                                                scaleIn(initialScale = 0.97f, animationSpec = tween(220, easing = LinearOutSlowInEasing)))
-                                            .togetherWith(
-                                                fadeOut(animationSpec = tween(180, easing = FastOutLinearInEasing)) +
-                                                        scaleOut(targetScale = 1.03f, animationSpec = tween(180, easing = FastOutLinearInEasing))
-                                            )
-                                    }
-                                }
-                                3 -> {
-                                    fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing))
-                                        .togetherWith(fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing)))
-                                }
-                                else -> {
-                                    if (isBack) {
-                                        (slideInVertically(animationSpec = tween(260, easing = FastOutSlowInEasing)) { fullHeight -> -fullHeight / 12 } +
-                                                fadeIn(animationSpec = tween(240)))
-                                            .togetherWith(
-                                                slideOutVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) { fullHeight -> fullHeight / 12 } +
-                                                        fadeOut(animationSpec = tween(220))
-                                            )
-                                    } else {
-                                        (slideInVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) { fullHeight -> fullHeight / 12 } +
-                                                fadeIn(animationSpec = tween(260)))
-                                            .togetherWith(
-                                                slideOutVertically(animationSpec = tween(260, easing = FastOutSlowInEasing)) { fullHeight -> -fullHeight / 12 } +
-                                                        fadeOut(animationSpec = tween(200))
-                                            )
-                                    }
-                                }
+                            if (isBack) {
+                                (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                        fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
+                                    .togetherWith(
+                                        slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                                fadeOut(animationSpec = tween(170))
+                                    )
+                            } else {
+                                (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                        fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
+                                    .togetherWith(
+                                        slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                                fadeOut(animationSpec = tween(170))
+                                    )
                             }
                         },
                         label = "settings_topbar_title"
@@ -389,11 +365,7 @@ fun SettingsScreen(
                                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                                 indication = null, // No ripple or click effect!
                                 onClick = {
-                                    if (currentSection != SettingsSection.MAIN_MENU) {
-                                        currentSection = SettingsSection.MAIN_MENU
-                                    } else {
-                                        viewModel.navigateBack()
-                                    }
+                                    handleBack()
                                 }
                             )
                     ) {
@@ -424,68 +396,20 @@ fun SettingsScreen(
                 modifier = Modifier.clipToBounds(),
                 transitionSpec = {
                     val isBack = targetState == SettingsSection.MAIN_MENU
-                    when (currentSettings.transitionStyle) {
-                        1 -> {
-                            // Lateral / Horizontal Slide (Bidirectional side motion)
-                            if (isBack) {
-                                (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
-                                        fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
-                                    .togetherWith(
-                                        slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> width / 4 } +
-                                                fadeOut(animationSpec = tween(170))
-                                    )
-                            } else {
-                                (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
-                                        fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
-                                    .togetherWith(
-                                        slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
-                                                fadeOut(animationSpec = tween(170))
-                                    )
-                            }
-                        }
-                        2 -> {
-                            // Ultra Smooth & Lightweight Fade + Subtle Scale (Minimum CPU/GPU overhead)
-                            if (isBack) {
-                                (fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing)) +
-                                        scaleIn(initialScale = 1.03f, animationSpec = tween(220, easing = LinearOutSlowInEasing)))
-                                    .togetherWith(
-                                        fadeOut(animationSpec = tween(180, easing = FastOutLinearInEasing)) +
-                                                scaleOut(targetScale = 0.97f, animationSpec = tween(180, easing = FastOutLinearInEasing))
-                                    )
-                            } else {
-                                (fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing)) +
-                                        scaleIn(initialScale = 0.97f, animationSpec = tween(220, easing = LinearOutSlowInEasing)))
-                                    .togetherWith(
-                                        fadeOut(animationSpec = tween(180, easing = FastOutLinearInEasing)) +
-                                                scaleOut(targetScale = 1.03f, animationSpec = tween(180, easing = FastOutLinearInEasing))
-                                    )
-                            }
-                        }
-                        3 -> {
-                            // Link Transition: Natural in-place fade (Zero layout recalculation)
-                            fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing))
-                                .togetherWith(
-                                    fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing))
-                                )
-                        }
-                        else -> {
-                            // Default: Dynamic Vertical Motion
-                            if (isBack) {
-                                (slideInVertically(animationSpec = tween(260, easing = FastOutSlowInEasing)) { fullHeight -> -fullHeight / 12 } +
-                                        fadeIn(animationSpec = tween(240)))
-                                    .togetherWith(
-                                        slideOutVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) { fullHeight -> fullHeight / 10 } +
-                                                fadeOut(animationSpec = tween(220))
-                                    )
-                            } else {
-                                (slideInVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) { fullHeight -> fullHeight / 10 } +
-                                        fadeIn(animationSpec = tween(260)))
-                                    .togetherWith(
-                                        slideOutVertically(animationSpec = tween(260, easing = FastOutSlowInEasing)) { fullHeight -> -fullHeight / 12 } +
-                                                fadeOut(animationSpec = tween(200))
-                                    )
-                            }
-                        }
+                    if (isBack) {
+                        (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
+                            .togetherWith(
+                                slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                        fadeOut(animationSpec = tween(170))
+                            )
+                    } else {
+                        (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
+                            .togetherWith(
+                                slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                        fadeOut(animationSpec = tween(170))
+                            )
                     }
                 },
                 label = "settings_navigation"
@@ -499,7 +423,7 @@ fun SettingsScreen(
                             .padding(top = padding.calculateTopPadding())
                             .verticalScroll(rememberScrollState()),
                         currentSettings = currentSettings,
-                        onNavigateTo = { currentSection = it }
+                        onNavigateTo = { navigateToSection(it) }
                     )
                 }
                 SettingsSection.DISPLAY -> {
@@ -526,10 +450,6 @@ fun SettingsScreen(
                         appIconStyle = currentSettings.appIconStyle,
                         onAppIconStyleChange = {
                             viewModel.updateSettings(currentSettings.copy(appIconStyle = it))
-                        },
-                        transitionStyle = currentSettings.transitionStyle,
-                        onTransitionStyleChange = {
-                            viewModel.updateSettings(currentSettings.copy(transitionStyle = it))
                         },
                         enableVideoPlayerGestures = currentSettings.enableVideoPlayerGestures,
                         onEnableVideoPlayerGesturesChange = {
@@ -1247,8 +1167,6 @@ private fun SettingsDisplaySection(
     onShowManagementCardsChange: (Boolean) -> Unit, // ORG-MOVED
     appIconStyle: Int,
     onAppIconStyleChange: (Int) -> Unit,
-    transitionStyle: Int,
-    onTransitionStyleChange: (Int) -> Unit,
     enableVideoPlayerGestures: Boolean,
     onEnableVideoPlayerGesturesChange: (Boolean) -> Unit
 ) {
@@ -1276,28 +1194,6 @@ private fun SettingsDisplaySection(
                 NativeThemeSelector(
                     selectedTheme = themeName,
                     onSelectTheme = onThemeChange
-                )
-            }
-        }
-
-        // Transition Animation selection in Grouped Card
-        GroupedCard {
-            Column(
-                modifier = Modifier.padding(20.dp), // MUSE-REF
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Text(
-                    "Transition Animation",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    color = palette.textPrimary // MUSE-REF
-                )
-
-                NativeTransitionSelector(
-                    selectedStyle = transitionStyle,
-                    onSelectStyle = onTransitionStyleChange
                 )
             }
         }

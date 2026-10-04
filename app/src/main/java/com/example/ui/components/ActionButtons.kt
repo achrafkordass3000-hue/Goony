@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -36,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import com.example.R
 
 object BtnColors {
@@ -50,6 +52,35 @@ object BtnColors {
 }
 
 val LocalActionsInteractive = compositionLocalOf { true }
+val LocalActionMenuProgress = compositionLocalOf { 1f }
+
+private val SoftDecelEasing = CubicBezierEasing(0.22f, 1.0f, 0.36f, 1.0f)
+
+/**
+ * Ultra-smooth, hardware-accelerated staggered entrance modifier.
+ * Animates buttons sequentially from Left to Right on entrance (Leftmost appears first),
+ * and from Right to Left on exit (Rightmost disappears first).
+ */
+fun Modifier.staggeredActionEntrance(
+    progress: Float,
+    indexFromLeft: Int,
+    totalItems: Int,
+    riseDistanceDp: Float = 36f
+): Modifier = this.graphicsLayer {
+    val maxDelay = 0.44f
+    val stepDelay = if (totalItems > 1) maxDelay / (totalItems - 1) else 0f
+    val delayFraction = (indexFromLeft * stepDelay).coerceIn(0f, maxDelay)
+    val rawProgress = if (delayFraction < 1f) {
+        ((progress - delayFraction) / (1f - delayFraction)).coerceIn(0f, 1f)
+    } else progress
+
+    val eased = SoftDecelEasing.transform(rawProgress)
+    alpha = eased
+    val s = lerp(0.76f, 1.0f, eased)
+    scaleX = s
+    scaleY = s
+    translationY = (1f - eased) * riseDistanceDp.dp.toPx()
+}
 
 private val ActionTextShadowSingle = TextStyle(
     platformStyle = PlatformTextStyle(includeFontPadding = false),
@@ -98,14 +129,14 @@ fun ActionCircleButton(
     ) {
         Box(
             modifier = Modifier
-                .size(52.dp)
+                .size(58.dp)
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
                 }
                 .clip(CircleShape)
                 .background(if (enabled) color else color.copy(alpha = 0.5f))
-                .border(BorderStroke(2.dp, Color.White.copy(alpha = if (enabled) 0.32f else 0.12f)), CircleShape)
+                .border(BorderStroke(2.dp, Color.White.copy(alpha = if (enabled) 0.35f else 0.15f)), CircleShape)
                 .clickable(
                     interactionSource = interactionSource,
                     indication = ripple(bounded = true, color = Color.White),
@@ -130,7 +161,7 @@ fun ActionCircleButton(
                     contentDescription = label,
                     tint = Color.White,
                     modifier = Modifier
-                        .size(28.dp)
+                        .size(31.dp)
                         .rotate(iconRotation)
                 )
             } else if (text != null) {
@@ -143,7 +174,7 @@ fun ActionCircleButton(
                     Text(
                         text = text,
                         color = Color.White,
-                        fontSize = 19.sp,
+                        fontSize = 21.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp,
                         textAlign = TextAlign.Center,
@@ -155,7 +186,7 @@ fun ActionCircleButton(
         Text(
             text = label,
             color = Color.White,
-            fontSize = 11.5.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             textAlign = TextAlign.Center
@@ -175,11 +206,20 @@ fun MainActionMenu(
     modifier: Modifier = Modifier,
     isSaved: Boolean = false,
     showMagnet: Boolean = true,
-    showUrl: Boolean = true
+    showUrl: Boolean = true,
+    progress: Float = LocalActionMenuProgress.current
 ) {
+    val totalItems = (if (showMagnet) 1 else 0) + (if (showUrl) 1 else 0) + 3
+    var leftIdx = 0
+    val magnetIdx = if (showMagnet) leftIdx++ else -1
+    val urlIdx = if (showUrl) leftIdx++ else -1
+    val saveIdx = leftIdx++
+    val editIdx = leftIdx++
+    val deleteIdx = leftIdx++
+
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (showMagnet) {
@@ -188,7 +228,12 @@ fun MainActionMenu(
                 color = BtnColors.Magnet,
                 onClick = onMagnetClick,
                 icon = painterResource(R.drawable.ic_magnet),
-                iconRotation = 0f
+                iconRotation = 0f,
+                modifier = Modifier.staggeredActionEntrance(
+                    progress = progress,
+                    indexFromLeft = magnetIdx,
+                    totalItems = totalItems
+                )
             )
         }
         if (showUrl) {
@@ -196,33 +241,47 @@ fun MainActionMenu(
                 label = "URL",
                 color = BtnColors.Url,
                 onClick = onUrlClick,
-                icon = painterResource(R.drawable.ic_url_link)
+                icon = painterResource(R.drawable.ic_url_link),
+                modifier = Modifier.staggeredActionEntrance(
+                    progress = progress,
+                    indexFromLeft = urlIdx,
+                    totalItems = totalItems
+                )
             )
         }
 
-        val bookmarkScale by animateFloatAsState(
-            targetValue = if (isSaved) 1.08f else 1f,
-            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-            label = "bookmark_pop"
-        )
         ActionCircleButton(
             label = if (isSaved) "Saved" else "Save",
             color = BtnColors.Save,
             onClick = onSave,
             icon = painterResource(if (isSaved) R.drawable.ic_bookmark_saved else R.drawable.ic_bookmark_save),
-            modifier = Modifier.scale(bookmarkScale)
+            modifier = Modifier.staggeredActionEntrance(
+                progress = progress,
+                indexFromLeft = saveIdx,
+                totalItems = totalItems
+            )
         )
         ActionCircleButton(
             label = "Edit",
             color = BtnColors.Edit,
             onClick = onEdit,
-            icon = painterResource(R.drawable.ic_edit_pencil)
+            icon = painterResource(R.drawable.ic_edit_pencil),
+            modifier = Modifier.staggeredActionEntrance(
+                progress = progress,
+                indexFromLeft = editIdx,
+                totalItems = totalItems
+            )
         )
         ActionCircleButton(
             label = "Delete",
             color = BtnColors.Delete,
             onClick = onDelete,
-            icon = painterResource(R.drawable.ic_delete_trash)
+            icon = painterResource(R.drawable.ic_delete_trash),
+            modifier = Modifier.staggeredActionEntrance(
+                progress = progress,
+                indexFromLeft = deleteIdx,
+                totalItems = totalItems
+            )
         )
     }
 }
@@ -233,11 +292,17 @@ fun QualitySelectMenu(
     onSelect4K: () -> Unit,
     modifier: Modifier = Modifier,
     hasHD: Boolean = true,
-    has4K: Boolean = true
+    has4K: Boolean = true,
+    progress: Float = LocalActionMenuProgress.current
 ) {
+    val totalItems = (if (hasHD) 1 else 0) + (if (has4K) 1 else 0)
+    var leftIdx = 0
+    val hdIdx = if (hasHD) leftIdx++ else -1
+    val k4Idx = if (has4K) leftIdx++ else -1
+
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (hasHD) {
@@ -245,7 +310,12 @@ fun QualitySelectMenu(
                 label = "HD",
                 color = BtnColors.Hd,
                 onClick = onSelectHD,
-                text = "HD"
+                icon = painterResource(R.drawable.ic_quality_hd),
+                modifier = Modifier.staggeredActionEntrance(
+                    progress = progress,
+                    indexFromLeft = hdIdx,
+                    totalItems = totalItems
+                )
             )
         }
         if (has4K) {
@@ -253,7 +323,12 @@ fun QualitySelectMenu(
                 label = "4K",
                 color = BtnColors.K4,
                 onClick = onSelect4K,
-                text = "4K"
+                icon = painterResource(R.drawable.ic_quality_4k),
+                modifier = Modifier.staggeredActionEntrance(
+                    progress = progress,
+                    indexFromLeft = k4Idx,
+                    totalItems = totalItems
+                )
             )
         }
     }
@@ -263,7 +338,8 @@ fun QualitySelectMenu(
 fun DeleteConfirmMenu(
     onCancel: () -> Unit,
     onConfirm: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    progress: Float = LocalActionMenuProgress.current
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -278,21 +354,31 @@ fun DeleteConfirmMenu(
         )
         Spacer(Modifier.height(14.dp))
         Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+            horizontalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically
         ) {
             ActionCircleButton(
                 label = "Cancel",
                 color = BtnColors.Cancel,
                 onClick = onCancel,
-                icon = painterResource(R.drawable.ic_action_cancel)
+                icon = painterResource(R.drawable.ic_action_cancel),
+                modifier = Modifier.staggeredActionEntrance(
+                    progress = progress,
+                    indexFromLeft = 0,
+                    totalItems = 2
+                )
             )
             ActionCircleButton(
                 label = "Delete",
                 color = BtnColors.Delete,
                 onClick = onConfirm,
                 icon = painterResource(R.drawable.ic_delete_trash),
-                strongHaptic = true
+                strongHaptic = true,
+                modifier = Modifier.staggeredActionEntrance(
+                    progress = progress,
+                    indexFromLeft = 1,
+                    totalItems = 2
+                )
             )
         }
     }

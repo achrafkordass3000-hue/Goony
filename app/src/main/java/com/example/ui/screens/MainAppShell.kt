@@ -357,66 +357,21 @@ fun MainAppShell(viewModel: MainViewModel) {
                     AnimatedContent(
                         targetState = currentScreen,
                         transitionSpec = {
-                            when (currentSettings.transitionStyle) {
-                                1 -> {
-                                    // Lateral Slide: Head slides horizontally in complete sync with the screen body!
-                                    if (navDirection == MainViewModel.NavigationDirection.BACK) {
-                                        (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
-                                                fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
-                                            .togetherWith(
-                                                slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> width / 4 } +
-                                                        fadeOut(animationSpec = tween(170))
-                                            )
-                                    } else {
-                                        (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
-                                                fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
-                                            .togetherWith(
-                                                slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
-                                                        fadeOut(animationSpec = tween(170))
-                                            )
-                                    }
-                                }
-                                2 -> {
-                                    // Smooth Fade & Scale in sync
-                                    if (navDirection == MainViewModel.NavigationDirection.BACK) {
-                                        (fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing)) +
-                                                scaleIn(initialScale = 1.03f, animationSpec = tween(220, easing = LinearOutSlowInEasing)))
-                                            .togetherWith(
-                                                fadeOut(animationSpec = tween(180, easing = FastOutLinearInEasing)) +
-                                                        scaleOut(targetScale = 0.97f, animationSpec = tween(180, easing = FastOutLinearInEasing))
-                                            )
-                                    } else {
-                                        (fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing)) +
-                                                scaleIn(initialScale = 0.97f, animationSpec = tween(220, easing = LinearOutSlowInEasing)))
-                                            .togetherWith(
-                                                fadeOut(animationSpec = tween(180, easing = FastOutLinearInEasing)) +
-                                                        scaleOut(targetScale = 1.03f, animationSpec = tween(180, easing = FastOutLinearInEasing))
-                                            )
-                                    }
-                                }
-                                3 -> {
-                                    // Link Transition: In-place natural fade
-                                    fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing))
-                                        .togetherWith(fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing)))
-                                }
-                                else -> {
-                                    // Default: Synchronized Vertical Slide
-                                    if (navDirection == MainViewModel.NavigationDirection.BACK) {
-                                        (slideInVertically(animationSpec = tween(260, easing = FastOutSlowInEasing)) { fullHeight -> -fullHeight / 12 } +
-                                                fadeIn(animationSpec = tween(240)))
-                                            .togetherWith(
-                                                slideOutVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) { fullHeight -> fullHeight / 12 } +
-                                                        fadeOut(animationSpec = tween(220))
-                                            )
-                                    } else {
-                                        (slideInVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) { fullHeight -> fullHeight / 12 } +
-                                                fadeIn(animationSpec = tween(260)))
-                                            .togetherWith(
-                                                slideOutVertically(animationSpec = tween(260, easing = FastOutSlowInEasing)) { fullHeight -> -fullHeight / 12 } +
-                                                        fadeOut(animationSpec = tween(200))
-                                            )
-                                    }
-                                }
+                            // Lateral Slide: Head slides horizontally in complete sync with the screen body!
+                            if (navDirection == MainViewModel.NavigationDirection.BACK) {
+                                (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                        fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
+                                    .togetherWith(
+                                        slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                                fadeOut(animationSpec = tween(170))
+                                    )
+                            } else {
+                                (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                        fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
+                                    .togetherWith(
+                                        slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                                fadeOut(animationSpec = tween(170))
+                                    )
                             }
                         },
                         label = "global_top_bar_transition"
@@ -449,75 +404,21 @@ fun MainAppShell(viewModel: MainViewModel) {
                                 AnimatedContent(
                             targetState = currentScreen,
                             transitionSpec = {
-                                when (currentSettings.transitionStyle) {
-                                    1 -> {
-                                        // Lateral / Horizontal Slide (Bidirectional Side Motion)
-                                        if (navDirection == MainViewModel.NavigationDirection.BACK) {
-                                            (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
-                                                    fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
-                                                .togetherWith(
-                                                    slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> width / 4 } +
-                                                            fadeOut(animationSpec = tween(170))
-                                                )
-                                        } else {
-                                            (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
-                                                    fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
-                                                .togetherWith(
-                                                    slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
-                                                            fadeOut(animationSpec = tween(170))
-                                                )
-                                        }
-                                    }
-                                    2 -> {
-                                        // Ultra Smooth & Lightweight Fade + Subtle Scale (Minimum CPU/GPU overhead)
-                                        if (navDirection == MainViewModel.NavigationDirection.BACK) {
-                                            (fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing)) +
-                                                    scaleIn(initialScale = 1.03f, animationSpec = tween(220, easing = LinearOutSlowInEasing)))
-                                                .togetherWith(
-                                                    fadeOut(animationSpec = tween(180, easing = FastOutLinearInEasing)) +
-                                                            scaleOut(targetScale = 0.97f, animationSpec = tween(180, easing = FastOutLinearInEasing))
-                                                )
-                                        } else {
-                                            (fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing)) +
-                                                    scaleIn(initialScale = 0.97f, animationSpec = tween(220, easing = LinearOutSlowInEasing)))
-                                                .togetherWith(
-                                                    fadeOut(animationSpec = tween(180, easing = FastOutLinearInEasing)) +
-                                                            scaleOut(targetScale = 1.03f, animationSpec = tween(180, easing = FastOutLinearInEasing))
-                                                )
-                                        }
-                                    }
-                                    3 -> {
-                                        // Link Transition: Static TopBar/Head (No slide motion), natural in-place transition of header elements
-                                        if (navDirection == MainViewModel.NavigationDirection.BACK) {
-                                            fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing))
-                                                .togetherWith(
-                                                    fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing))
-                                                )
-                                        } else {
-                                            fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing))
-                                                .togetherWith(
-                                                    fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing))
-                                                )
-                                        }
-                                    }
-                                    else -> {
-                                        // Default: Dynamic Vertical Motion
-                                        if (navDirection == MainViewModel.NavigationDirection.BACK) {
-                                            (slideInVertically(animationSpec = tween(260, easing = FastOutSlowInEasing)) { fullHeight -> -fullHeight / 12 } +
-                                                    fadeIn(animationSpec = tween(240)))
-                                                .togetherWith(
-                                                    slideOutVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) { fullHeight -> fullHeight / 5 } +
-                                                            fadeOut(animationSpec = tween(240))
-                                                )
-                                        } else {
-                                            (slideInVertically(animationSpec = tween(320, easing = FastOutSlowInEasing)) { fullHeight -> fullHeight / 5 } +
-                                                    fadeIn(animationSpec = tween(280)))
-                                                .togetherWith(
-                                                    slideOutVertically(animationSpec = tween(260, easing = FastOutSlowInEasing)) { fullHeight -> -fullHeight / 12 } +
-                                                            fadeOut(animationSpec = tween(220))
-                                                )
-                                        }
-                                    }
+                                // Lateral / Horizontal Slide (Bidirectional Side Motion)
+                                if (navDirection == MainViewModel.NavigationDirection.BACK) {
+                                    (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                            fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
+                                        .togetherWith(
+                                            slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                                    fadeOut(animationSpec = tween(170))
+                                        )
+                                } else {
+                                    (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                            fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing)))
+                                        .togetherWith(
+                                            slideOutHorizontally(animationSpec = tween(200, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                                    fadeOut(animationSpec = tween(170))
+                                        )
                                 }
                             },
                             label = "screen_motion_transition"
