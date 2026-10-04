@@ -126,9 +126,11 @@ fun MainAppShell(viewModel: MainViewModel) {
             override var value: (@Composable () -> Unit)?
                 get() = state.value
                 set(newValue) {
-                    state.value = newValue
-                    if (newValue != null) {
-                        topBarMap[currentScreen] = newValue
+                    if (state.value !== newValue) {
+                        state.value = newValue
+                        if (newValue != null) {
+                            topBarMap[currentScreen] = newValue
+                        }
                     }
                 }
             override fun component1(): (@Composable () -> Unit)? = state.value

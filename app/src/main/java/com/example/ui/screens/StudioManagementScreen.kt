@@ -98,8 +98,14 @@ fun StudioManagementScreen(
     }
 
     val topBarContent = LocalTopBarContent.current
-    SideEffect {
-        topBarContent.value = {
+    val currentTopBar: @Composable () -> Unit = remember(
+        studios.size,
+        showSortMenu,
+        sortOption,
+        palette,
+        accent
+    ) {
+        {
             TopAppBar(
                 title = { Text("Studios (${studios.size})", color = palette.textPrimary) },
                 navigationIcon = {
@@ -185,6 +191,9 @@ fun StudioManagementScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = palette.surface)
             )
         }
+    }
+    SideEffect {
+        topBarContent.value = currentTopBar
     }
 
     Scaffold(

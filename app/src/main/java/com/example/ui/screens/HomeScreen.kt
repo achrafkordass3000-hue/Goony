@@ -227,8 +227,19 @@ fun HomeScreen(
     val focusManager = LocalFocusManager.current
 
     val topBarContent = LocalTopBarContent.current
-    SideEffect {
-        topBarContent.value = {
+    val currentTopBar: @Composable () -> Unit = remember(
+        isSearchExpanded,
+        searchQuery,
+        showSortMenu,
+        currentSort,
+        targetActor,
+        targetStudio,
+        currentScreen,
+        actorsMap,
+        studiosMap,
+        onOpenDrawer
+    ) {
+        {
             TopAppBar(
                 title = {
                     if (isSearchExpanded) {
@@ -475,6 +486,50 @@ fun HomeScreen(
                                         showSortMenu = false
                                     }
                                 )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            "A - Z",
+                                            fontWeight = if (currentSort == SortMode.TITLE_AZ) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (currentSort == SortMode.TITLE_AZ) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        if (currentSort == SortMode.TITLE_AZ) {
+                                            Icon(
+                                                Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        viewModel.sortMode.value = SortMode.TITLE_AZ
+                                        showSortMenu = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            "Z - A",
+                                            fontWeight = if (currentSort == SortMode.TITLE_ZA) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (currentSort == SortMode.TITLE_ZA) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        if (currentSort == SortMode.TITLE_ZA) {
+                                            Icon(
+                                                Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        viewModel.sortMode.value = SortMode.TITLE_ZA
+                                        showSortMenu = false
+                                    }
+                                )
                             }
                         }
 
@@ -523,6 +578,9 @@ fun HomeScreen(
                 )
             )
         }
+    }
+    SideEffect {
+        topBarContent.value = currentTopBar
     }
 
     Scaffold(

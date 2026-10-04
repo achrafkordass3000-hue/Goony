@@ -107,8 +107,14 @@ fun ActorManagementScreen(
     }
 
     val topBarContent = LocalTopBarContent.current
-    SideEffect {
-        topBarContent.value = {
+    val currentTopBar: @Composable () -> Unit = remember(
+        actors.size,
+        showSortMenu,
+        sortOption,
+        palette,
+        accent
+    ) {
+        {
             TopAppBar(
                 title = { Text("Actors (${actors.size})", color = palette.textPrimary) },
                 navigationIcon = {
@@ -194,6 +200,9 @@ fun ActorManagementScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = palette.surface)
             )
         }
+    }
+    SideEffect {
+        topBarContent.value = currentTopBar
     }
 
     Scaffold(
