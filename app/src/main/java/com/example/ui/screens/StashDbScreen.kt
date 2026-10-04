@@ -119,8 +119,10 @@ fun StashDbScreen(
     val savedStashDbIds by remember(savedLinks) {
         derivedStateOf { savedLinks.mapNotNull { it.stashDbId }.toSet() }
     }
-    val savedTitles by remember(savedLinks) {
-        derivedStateOf { savedLinks.map { it.title.trim().lowercase() }.toSet() }
+    val savedTitleAndDatePairs by remember(savedLinks) {
+        derivedStateOf {
+            savedLinks.map { Pair(it.title.trim().lowercase(), it.assignedDate) }.toSet()
+        }
     }
 
     // Persistent state from MainViewModel
@@ -137,20 +139,24 @@ fun StashDbScreen(
     val scenesList by viewModel.stashScenesList.collectAsStateWithLifecycle()
     val selectedSceneIds by viewModel.stashSelectedSceneIds.collectAsStateWithLifecycle()
 
-    val isSavingProgress by viewModel.isSavingProgress.collectAsStateWithLifecycle()
-    val saveIndex by viewModel.saveCurrentIndex.collectAsStateWithLifecycle()
-    val saveTotal by viewModel.saveTotalCount.collectAsStateWithLifecycle()
-    val saveTitle by viewModel.saveCurrentTitle.collectAsStateWithLifecycle()
-
     val isSearchingTarget by viewModel.isStashLoadingEntities.collectAsStateWithLifecycle()
     val isLoadingScenes by viewModel.isStashLoadingScenes.collectAsStateWithLifecycle()
     val isLoadingMore by viewModel.isStashLoadingMore.collectAsStateWithLifecycle()
     val canLoadMore by viewModel.stashCanLoadMore.collectAsStateWithLifecycle()
     val searchError by viewModel.stashSearchError.collectAsStateWithLifecycle()
 
+    val isSavingWithProgress by viewModel.isSavingWithProgress.collectAsStateWithLifecycle()
+    val saveProgressCurrent by viewModel.saveProgressCurrent.collectAsStateWithLifecycle()
+    val saveProgressTotal by viewModel.saveProgressTotal.collectAsStateWithLifecycle()
+    val saveCurrentTitle by viewModel.saveCurrentTitle.collectAsStateWithLifecycle()
+    val saveCurrentPhase by viewModel.saveCurrentPhase.collectAsStateWithLifecycle()
+    val saveSavedWithTorrentsCount by viewModel.saveSavedWithTorrentsCount.collectAsStateWithLifecycle()
+
     // System Back Press Handling
     BackHandler {
-        if (selectedSceneIds.isNotEmpty()) {
+        if (isSavingWithProgress) {
+            return@BackHandler
+        } else if (selectedSceneIds.isNotEmpty()) {
             viewModel.clearStashSelection()
         } else if (isSearchExpanded) {
             viewModel.setStashSearchExpanded(false)
@@ -213,7 +219,7 @@ fun StashDbScreen(
     val shouldLoadMore by remember {
         derivedStateOf {
             val totalItems = scenesList.size
-            if (totalItems == 0 || isLoadingScenes || isLoadingMore || !canLoadMore) {
+            if (totalItems == 0 || isLoadingScenes || isLoadingMore || !canLoadMore || searchError != null) {
                 false
             } else {
                 val lastVisibleItem = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -230,14 +236,122 @@ fun StashDbScreen(
 
     var studioToBlock by remember { mutableStateOf<Pair<String?, String>?>(null) }
 
-    // Save all selected scenes to Links with batch DB insert and progress dialog
-    val saveSelectedScenes = { fetchTorrents: Boolean ->
-        viewModel.saveSelectedStashScenesWithProgress(fetchTorrents = fetchTorrents) { savedCount ->
+    // Save all selected scenes to Links with batch DB insert and torrent fetching
+    val saveSelectedScenes = {
+        viewModel.saveSelectedStashScenesWithProgress { savedCount, torrentsCount ->
             coroutineScope.launch {
-                val actionMsg = if (fetchTorrents) "Fetched torrents & saved" else "Saved"
-                snackbarHostState.showSnackbar("$actionMsg $savedCount scene${if (savedCount > 1) "s" else ""} successfully!")
+                val msg = when {
+                    savedCount == 0 -> "No scenes saved"
+                    savedCount == 1 -> if (torrentsCount > 0) "Saved 1 scene (1 with torrent)!" else "Saved 1 scene!"
+                    else -> if (torrentsCount > 0) "Saved $savedCount scenes ($torrentsCount with torrents)!" else "Saved $savedCount scenes!"
+                }
+                snackbarHostState.showSnackbar(msg)
             }
         }
+    }
+
+    if (isSavingWithProgress) {
+        val total = saveProgressTotal
+        val current = saveProgressCurrent
+        val percentage = if (total > 0) ((current.toFloat() / total) * 100).toInt().coerceIn(0, 100) else 0
+        val progressFraction = if (total > 0) (current.toFloat() / total).coerceIn(0f, 1f) else 0f
+
+        AlertDialog(
+            onDismissRequest = { /* Non-dismissable on touch outside */ },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = palette.cardBg,
+            title = {
+                Text(
+                    text = "Saving Scenes...",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 19.sp,
+                    color = palette.textPrimary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    LinearProgressIndicator(
+                        progress = { progressFraction },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp)),
+                        color = accent,
+                        trackColor = palette.border
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Scene $current of $total ($percentage%)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = palette.textPrimary
+                        )
+                        if (saveSavedWithTorrentsCount > 0) {
+                            Text(
+                                text = "Torrents: $saveSavedWithTorrentsCount",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = accent
+                            )
+                        }
+                    }
+
+                    if (saveCurrentTitle.isNotBlank()) {
+                        Text(
+                            text = saveCurrentTitle,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = palette.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    if (saveCurrentPhase.isNotBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(12.dp),
+                                strokeWidth = 1.5.dp,
+                                color = accent
+                            )
+                            Text(
+                                text = saveCurrentPhase,
+                                fontSize = 11.5.sp,
+                                color = palette.textMuted
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(
+                    onClick = { viewModel.cancelBatchSave() },
+                    shape = CircleShape,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.testTag("cancel_batch_save_button")
+                ) {
+                    Text(
+                        text = "Cancel",
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        )
     }
 
     if (studioToBlock != null) {
@@ -406,25 +520,15 @@ fun StashDbScreen(
                     }
                 },
                 actions = {
-                    // 1. Torrent Fetch & Save and Standard Save buttons when items are selected
+                    // 1. Always accessible Save button when items are selected
                     if (selectedSceneIds.isNotEmpty()) {
                         IconButton(
-                            onClick = { saveSelectedScenes(true) },
-                            modifier = Modifier.testTag("torrent_save_selected_scenes_button")
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_magnet),
-                                contentDescription = "Fetch Torrents & Save Selected Scenes",
-                                tint = accent
-                            )
-                        }
-                        IconButton(
-                            onClick = { saveSelectedScenes(true) },
+                            onClick = { saveSelectedScenes() },
                             modifier = Modifier.testTag("save_selected_scenes_button")
                         ) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_action_save),
-                                contentDescription = "Save Selected Scenes & Fetch Torrents",
+                                contentDescription = "Save Selected Scenes",
                                 tint = accent
                             )
                         }
@@ -504,8 +608,8 @@ fun StashDbScreen(
                 .padding(top = padding.calculateTopPadding())
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Warning Banner: Missing StashDB API Key
-                if (settings.stashDbApiKey.isBlank()) {
+                // Warning Banner: Missing StashDB API Key (Only shown for StashDB tabs: ACTORS & STUDIO)
+                if (settings.stashDbApiKey.isBlank() && activeType != StashSearchType.SEXMEX) {
                     Surface(
                         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f), // BG-FIX
                         shape = RoundedCornerShape(12.dp),
@@ -547,8 +651,10 @@ fun StashDbScreen(
                             }
                         }
                     }
-                } else if (searchError != null) {
-                    // Search Error Banner
+                }
+
+                // Search Error Banner (Independent)
+                if (searchError != null) {
                     Surface(
                         color = palette.cardBg, // BG-FIX
                         shape = RoundedCornerShape(10.dp),
@@ -794,11 +900,12 @@ fun StashDbScreen(
                         AnimatedContent(
                             targetState = activeType,
                             transitionSpec = {
+                                val isForward = targetState.tabIndex() > initialState.tabIndex()
                                 (fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing)) +
-                                        slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { if (targetState == StashSearchType.STUDIO) it / 5 else -it / 5 })
+                                        slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { if (isForward) it / 5 else -it / 5 })
                                     .togetherWith(
                                         fadeOut(animationSpec = tween(150, easing = FastOutLinearInEasing)) +
-                                                slideOutHorizontally(animationSpec = tween(180, easing = FastOutSlowInEasing)) { if (targetState == StashSearchType.STUDIO) -it / 5 else it / 5 }
+                                                slideOutHorizontally(animationSpec = tween(180, easing = FastOutSlowInEasing)) { if (isForward) -it / 5 else it / 5 }
                                     )
                             },
                             label = "stash_results_type_anim"
@@ -901,7 +1008,9 @@ fun StashDbScreen(
                             ) {
                                 items(scenesList, key = { it.id }) { scene ->
                                     val isSelected = selectedSceneIds.contains(scene.id)
-                                    val isAlreadySaved = (scene.id in savedStashDbIds) || (scene.title.trim().lowercase() in savedTitles)
+                                    val parsedDate = StashDbApiService.parseDateToMillis(scene.date)
+                                    val isAlreadySaved = (scene.id in savedStashDbIds) ||
+                                        Pair(scene.title.trim().lowercase(), parsedDate) in savedTitleAndDatePairs
 
                                     StashGridPhotoCard(
                                         scene = scene,
@@ -950,11 +1059,12 @@ fun StashDbScreen(
                             AnimatedContent(
                                 targetState = activeType,
                                 transitionSpec = {
+                                    val isForward = targetState.tabIndex() > initialState.tabIndex()
                                     (fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing)) +
-                                            slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { if (targetState == StashSearchType.STUDIO) it / 6 else -it / 6 })
+                                            slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { if (isForward) it / 6 else -it / 6 })
                                         .togetherWith(
                                             fadeOut(animationSpec = tween(150, easing = FastOutLinearInEasing)) +
-                                                    slideOutHorizontally(animationSpec = tween(180, easing = FastOutSlowInEasing)) { if (targetState == StashSearchType.STUDIO) -it / 6 else it / 6 }
+                                                    slideOutHorizontally(animationSpec = tween(180, easing = FastOutSlowInEasing)) { if (isForward) -it / 6 else it / 6 }
                                         )
                                 },
                                 label = "stash_empty_state_anim"
@@ -998,69 +1108,6 @@ fun StashDbScreen(
                         }
                     }
                 }
-            }
-
-            // Save Progress Dialog
-            if (isSavingProgress) {
-                AlertDialog(
-                    onDismissRequest = {},
-                    shape = RoundedCornerShape(24.dp),
-                    containerColor = palette.cardBg,
-                    title = {
-                        Text(
-                            text = "Processing & Saving Scenes...",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = palette.textPrimary
-                        )
-                    },
-                    text = {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(14.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            LinearProgressIndicator(
-                                progress = { if (saveTotal > 0) saveIndex.toFloat() / saveTotal.toFloat() else 0f },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(8.dp)
-                                    .clip(RoundedCornerShape(4.dp)),
-                                color = accent,
-                                trackColor = palette.border
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Scene $saveIndex of $saveTotal",
-                                    fontSize = 12.sp,
-                                    color = palette.textSecondary
-                                )
-                                Text(
-                                    text = "${if (saveTotal > 0) (saveIndex * 100 / saveTotal) else 0}%",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = accent
-                                )
-                            }
-                            if (saveTitle.isNotBlank()) {
-                                Text(
-                                    text = saveTitle,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = palette.textPrimary,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                        }
-                    },
-                    confirmButton = {}
-                )
             }
         }
     }
@@ -1868,4 +1915,10 @@ private fun Modifier.horizontalFadeEdge(fadeWidth: Dp = 24.dp): Modifier = this.
             }
         }
 )
+
+private fun StashSearchType.tabIndex(): Int = when (this) {
+    StashSearchType.ACTORS -> 0
+    StashSearchType.STUDIO -> 1
+    StashSearchType.SEXMEX -> 2
+}
 
