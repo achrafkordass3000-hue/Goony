@@ -137,6 +137,11 @@ fun StashDbScreen(
     val scenesList by viewModel.stashScenesList.collectAsStateWithLifecycle()
     val selectedSceneIds by viewModel.stashSelectedSceneIds.collectAsStateWithLifecycle()
 
+    val isSavingProgress by viewModel.isSavingProgress.collectAsStateWithLifecycle()
+    val saveIndex by viewModel.saveCurrentIndex.collectAsStateWithLifecycle()
+    val saveTotal by viewModel.saveTotalCount.collectAsStateWithLifecycle()
+    val saveTitle by viewModel.saveCurrentTitle.collectAsStateWithLifecycle()
+
     val isSearchingTarget by viewModel.isStashLoadingEntities.collectAsStateWithLifecycle()
     val isLoadingScenes by viewModel.isStashLoadingScenes.collectAsStateWithLifecycle()
     val isLoadingMore by viewModel.isStashLoadingMore.collectAsStateWithLifecycle()
@@ -225,11 +230,12 @@ fun StashDbScreen(
 
     var studioToBlock by remember { mutableStateOf<Pair<String?, String>?>(null) }
 
-    // Save all selected scenes to Links with batch DB insert
-    val saveSelectedScenes = {
-        viewModel.saveSelectedStashScenes { savedCount ->
+    // Save all selected scenes to Links with batch DB insert and progress dialog
+    val saveSelectedScenes = { fetchTorrents: Boolean ->
+        viewModel.saveSelectedStashScenesWithProgress(fetchTorrents = fetchTorrents) { savedCount ->
             coroutineScope.launch {
-                snackbarHostState.showSnackbar("Saved $savedCount scene${if (savedCount > 1) "s" else ""} to Links!")
+                val actionMsg = if (fetchTorrents) "Fetched torrents & saved" else "Saved"
+                snackbarHostState.showSnackbar("$actionMsg $savedCount scene${if (savedCount > 1) "s" else ""} successfully!")
             }
         }
     }
@@ -400,15 +406,25 @@ fun StashDbScreen(
                     }
                 },
                 actions = {
-                    // 1. Always accessible Save button when items are selected
+                    // 1. Torrent Fetch & Save and Standard Save buttons when items are selected
                     if (selectedSceneIds.isNotEmpty()) {
                         IconButton(
-                            onClick = { saveSelectedScenes() },
+                            onClick = { saveSelectedScenes(true) },
+                            modifier = Modifier.testTag("torrent_save_selected_scenes_button")
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_magnet),
+                                contentDescription = "Fetch Torrents & Save Selected Scenes",
+                                tint = accent
+                            )
+                        }
+                        IconButton(
+                            onClick = { saveSelectedScenes(true) },
                             modifier = Modifier.testTag("save_selected_scenes_button")
                         ) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_action_save),
-                                contentDescription = "Save Selected Scenes",
+                                contentDescription = "Save Selected Scenes & Fetch Torrents",
                                 tint = accent
                             )
                         }
@@ -983,6 +999,69 @@ fun StashDbScreen(
                     }
                 }
             }
+
+            // Save Progress Dialog
+            if (isSavingProgress) {
+                AlertDialog(
+                    onDismissRequest = {},
+                    shape = RoundedCornerShape(24.dp),
+                    containerColor = palette.cardBg,
+                    title = {
+                        Text(
+                            text = "Processing & Saving Scenes...",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = palette.textPrimary
+                        )
+                    },
+                    text = {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            LinearProgressIndicator(
+                                progress = { if (saveTotal > 0) saveIndex.toFloat() / saveTotal.toFloat() else 0f },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp)),
+                                color = accent,
+                                trackColor = palette.border
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Scene $saveIndex of $saveTotal",
+                                    fontSize = 12.sp,
+                                    color = palette.textSecondary
+                                )
+                                Text(
+                                    text = "${if (saveTotal > 0) (saveIndex * 100 / saveTotal) else 0}%",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = accent
+                                )
+                            }
+                            if (saveTitle.isNotBlank()) {
+                                Text(
+                                    text = saveTitle,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = palette.textPrimary,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {}
+                )
+            }
         }
     }
 }
@@ -1246,6 +1325,7 @@ fun StashGridSkeletonCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                     .adaptiveSkeleton(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
             )
             // 2. Exact Title & metadata skeleton container matching StashGridPhotoCard pixel-for-pixel
@@ -1259,45 +1339,47 @@ fun StashGridSkeletonCard(
                     .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                // Title (Matches 12.5sp bold single line with line-height ~ 18dp)
+                // Title (Exact 18dp height matching 18sp line-height)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(0.85f)
-                        .height(17.dp)
+                        .height(18.dp)
                         .adaptiveSkeleton(RoundedCornerShape(4.dp))
                 )
-                // Divider line below title (Matches exact 0.5dp thickness and 1dp vertical padding)
+                // Divider line below title (Exact 0.5dp thickness with 1dp vertical padding)
                 HorizontalDivider(
                     color = palette.border.copy(alpha = 0.35f),
                     thickness = 0.5.dp,
                     modifier = Modifier.padding(vertical = 1.dp)
                 )
-                // Row 1: Actor Icon (13.5dp) + Actor text placeholder (14dp height)
+                // Row 1: Actor Icon (13.5dp) + Actor text placeholder (15dp height)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Box(modifier = Modifier.size(13.5.dp).adaptiveSkeleton(CircleShape))
-                    Box(modifier = Modifier.fillMaxWidth(0.65f).height(14.dp).adaptiveSkeleton(RoundedCornerShape(3.dp)))
+                    Box(modifier = Modifier.fillMaxWidth(0.65f).height(15.dp).adaptiveSkeleton(RoundedCornerShape(3.dp)))
                 }
-                // Row 2: Studio Icon (13.5dp) + Studio text placeholder (14dp height)
+                // Row 2: Studio Icon (13.5dp) + Studio text placeholder (15dp height + 1dp vertical padding)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 1.dp)
                 ) {
                     Box(modifier = Modifier.size(13.5.dp).adaptiveSkeleton(CircleShape))
-                    Box(modifier = Modifier.fillMaxWidth(0.48f).height(14.dp).adaptiveSkeleton(RoundedCornerShape(3.dp)))
+                    Box(modifier = Modifier.fillMaxWidth(0.48f).height(15.dp).adaptiveSkeleton(RoundedCornerShape(3.dp)))
                 }
-                // Row 3: Calendar Icon (13.5dp) + Date text placeholder (14dp height)
+                // Row 3: Calendar Icon (13.5dp) + Date text placeholder (15dp height)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Box(modifier = Modifier.size(13.5.dp).adaptiveSkeleton(CircleShape))
-                    Box(modifier = Modifier.fillMaxWidth(0.35f).height(14.dp).adaptiveSkeleton(RoundedCornerShape(3.dp)))
+                    Box(modifier = Modifier.fillMaxWidth(0.35f).height(15.dp).adaptiveSkeleton(RoundedCornerShape(3.dp)))
                 }
             }
         }
@@ -1526,12 +1608,13 @@ fun StashGridPhotoCard(
                     .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                // Title (Bold, 1 line with ellipsis)
+                // Title (Bold, 1 line with ellipsis and fixed 18sp line-height)
                 Text(
                     text = scene.title,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        fontSize = 12.5.sp
+                        fontSize = 12.5.sp,
+                        lineHeight = 18.sp
                     ),
                     color = palette.textPrimary,
                     maxLines = 1,
@@ -1565,6 +1648,7 @@ fun StashGridPhotoCard(
                     Text(
                         text = actorText,
                         fontSize = 10.5.sp,
+                        lineHeight = 15.sp,
                         color = palette.textSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -1594,6 +1678,7 @@ fun StashGridPhotoCard(
                     Text(
                         text = studioText,
                         fontSize = 10.5.sp,
+                        lineHeight = 15.sp,
                         color = palette.textSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -1616,6 +1701,7 @@ fun StashGridPhotoCard(
                     Text(
                         text = dateText,
                         fontSize = 10.5.sp,
+                        lineHeight = 15.sp,
                         color = palette.textSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis

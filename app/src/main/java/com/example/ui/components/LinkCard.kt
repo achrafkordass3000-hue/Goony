@@ -147,16 +147,10 @@ fun LinkCard(
         }
     }
 
-    // 4) Unified Overlay Animation Spec: Soft, slower staggered cascade with zoom & fade
-    val overlayAnimationSpec = if (isOverlayActive) {
-        tween<Float>(durationMillis = 420, easing = CubicBezierEasing(0.22f, 1.0f, 0.36f, 1.0f))
-    } else {
-        tween<Float>(durationMillis = 220, easing = FastOutLinearInEasing)
-    }
-
+    // 4) Lightweight, snappy overlay animation with zero processing overhead
     val menuProgress by animateFloatAsState(
         targetValue = if (isOverlayActive) 1f else 0f,
-        animationSpec = overlayAnimationSpec,
+        animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
         label = "menu_progress"
     )
 
@@ -287,14 +281,6 @@ fun LinkCard(
         animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
         label = "cover_reveal_alpha"
     )
-    val coverScale by animateFloatAsState(
-        targetValue = if (isOverlayActive) 1.08f else 1.0f,
-        animationSpec = tween(
-            durationMillis = if (isOverlayActive) 220 else 180,
-            easing = FastOutSlowInEasing
-        ),
-        label = "cover_scale"
-    )
 
     Column(
         modifier = modifier
@@ -382,8 +368,6 @@ fun LinkCard(
                             )
                             .graphicsLayer {
                                 alpha = coverAlpha
-                                scaleX = coverScale
-                                scaleY = coverScale
                             }
                     )
                     if (isBetaTest) {
@@ -425,11 +409,10 @@ fun LinkCard(
                 )
             }
 
-            // Smooth Native Zoom & Staggered Bottom-to-Top rise transition (Lightweight & hardware-accelerated)
+            // Simple, lightweight action buttons overlay
             if (isOverlayVisible) {
                 CompositionLocalProvider(
-                    LocalActionsInteractive provides isOverlayActive,
-                    LocalActionMenuProgress provides menuProgress
+                    LocalActionsInteractive provides isOverlayActive
                 ) {
                     Box(
                         modifier = Modifier
@@ -441,24 +424,34 @@ fun LinkCard(
                         AnimatedContent(
                             targetState = if (isOverlayActive) currentMenuState else lastOpenMenuState,
                             transitionSpec = {
-                                (slideInVertically(animationSpec = tween(220, easing = FastOutSlowInEasing)) { height -> height / 3 } +
+                                (slideInVertically(
+                                    animationSpec = spring(
+                                        dampingRatio = 1.0f, // Critically damped - silky smooth, zero bounce
+                                        stiffness = Spring.StiffnessLow
+                                    )
+                                ) { height -> height / 5 } +
+                                        fadeIn(animationSpec = tween(350, easing = CubicBezierEasing(0.16f, 1.0f, 0.3f, 1.0f))) +
                                         scaleIn(
                                             initialScale = 0.88f,
-                                            animationSpec = tween(220, easing = FastOutSlowInEasing)
-                                        ) +
-                                        fadeIn(animationSpec = tween(200)))
+                                            animationSpec = spring(
+                                                dampingRatio = 1.0f,
+                                                stiffness = Spring.StiffnessLow
+                                            )
+                                        ))
                                     .togetherWith(
-                                        slideOutVertically(animationSpec = tween(170, easing = FastOutLinearInEasing)) { height -> height / 3 } +
+                                        slideOutVertically(
+                                            animationSpec = tween(220, easing = FastOutLinearInEasing)
+                                        ) { height -> height / 5 } +
+                                                fadeOut(animationSpec = tween(180)) +
                                                 scaleOut(
                                                     targetScale = 0.88f,
-                                                    animationSpec = tween(170, easing = FastOutLinearInEasing)
-                                                ) +
-                                                fadeOut(animationSpec = tween(150))
+                                                    animationSpec = tween(180)
+                                                )
                                     )
                             },
                             contentAlignment = Alignment.Center,
                             modifier = Modifier.fillMaxWidth(),
-                            label = "center_spread_content"
+                            label = "simple_action_menu"
                         ) { state ->
                             when (state) {
                                 CardActionMenuState.CLOSED -> {
@@ -560,11 +553,6 @@ fun LinkCard(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(6.dp),
                                     modifier = Modifier
-                                        .staggeredActionEntrance(
-                                            progress = menuProgress,
-                                            indexFromLeft = idx,
-                                            totalItems = link.actorIds.size
-                                        )
                                         .padding(horizontal = 4.dp)
                                         .width(72.dp)
                                         .clip(RectangleShape)

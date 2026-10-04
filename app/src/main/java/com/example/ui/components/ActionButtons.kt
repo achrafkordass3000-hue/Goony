@@ -206,17 +206,8 @@ fun MainActionMenu(
     modifier: Modifier = Modifier,
     isSaved: Boolean = false,
     showMagnet: Boolean = true,
-    showUrl: Boolean = true,
-    progress: Float = LocalActionMenuProgress.current
+    showUrl: Boolean = true
 ) {
-    val totalItems = (if (showMagnet) 1 else 0) + (if (showUrl) 1 else 0) + 3
-    var leftIdx = 0
-    val magnetIdx = if (showMagnet) leftIdx++ else -1
-    val urlIdx = if (showUrl) leftIdx++ else -1
-    val saveIdx = leftIdx++
-    val editIdx = leftIdx++
-    val deleteIdx = leftIdx++
-
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally),
@@ -228,12 +219,7 @@ fun MainActionMenu(
                 color = BtnColors.Magnet,
                 onClick = onMagnetClick,
                 icon = painterResource(R.drawable.ic_magnet),
-                iconRotation = 0f,
-                modifier = Modifier.staggeredActionEntrance(
-                    progress = progress,
-                    indexFromLeft = magnetIdx,
-                    totalItems = totalItems
-                )
+                iconRotation = 0f
             )
         }
         if (showUrl) {
@@ -241,12 +227,7 @@ fun MainActionMenu(
                 label = "URL",
                 color = BtnColors.Url,
                 onClick = onUrlClick,
-                icon = painterResource(R.drawable.ic_url_link),
-                modifier = Modifier.staggeredActionEntrance(
-                    progress = progress,
-                    indexFromLeft = urlIdx,
-                    totalItems = totalItems
-                )
+                icon = painterResource(R.drawable.ic_url_link)
             )
         }
 
@@ -254,34 +235,19 @@ fun MainActionMenu(
             label = if (isSaved) "Saved" else "Save",
             color = BtnColors.Save,
             onClick = onSave,
-            icon = painterResource(if (isSaved) R.drawable.ic_bookmark_saved else R.drawable.ic_bookmark_save),
-            modifier = Modifier.staggeredActionEntrance(
-                progress = progress,
-                indexFromLeft = saveIdx,
-                totalItems = totalItems
-            )
+            icon = painterResource(if (isSaved) R.drawable.ic_bookmark_saved else R.drawable.ic_bookmark_save)
         )
         ActionCircleButton(
             label = "Edit",
             color = BtnColors.Edit,
             onClick = onEdit,
-            icon = painterResource(R.drawable.ic_edit_pencil),
-            modifier = Modifier.staggeredActionEntrance(
-                progress = progress,
-                indexFromLeft = editIdx,
-                totalItems = totalItems
-            )
+            icon = painterResource(R.drawable.ic_edit_pencil)
         )
         ActionCircleButton(
             label = "Delete",
             color = BtnColors.Delete,
             onClick = onDelete,
-            icon = painterResource(R.drawable.ic_delete_trash),
-            modifier = Modifier.staggeredActionEntrance(
-                progress = progress,
-                indexFromLeft = deleteIdx,
-                totalItems = totalItems
-            )
+            icon = painterResource(R.drawable.ic_delete_trash)
         )
     }
 }
@@ -292,14 +258,8 @@ fun QualitySelectMenu(
     onSelect4K: () -> Unit,
     modifier: Modifier = Modifier,
     hasHD: Boolean = true,
-    has4K: Boolean = true,
-    progress: Float = LocalActionMenuProgress.current
+    has4K: Boolean = true
 ) {
-    val totalItems = (if (hasHD) 1 else 0) + (if (has4K) 1 else 0)
-    var leftIdx = 0
-    val hdIdx = if (hasHD) leftIdx++ else -1
-    val k4Idx = if (has4K) leftIdx++ else -1
-
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterHorizontally),
@@ -310,12 +270,7 @@ fun QualitySelectMenu(
                 label = "HD",
                 color = BtnColors.Hd,
                 onClick = onSelectHD,
-                icon = painterResource(R.drawable.ic_quality_hd),
-                modifier = Modifier.staggeredActionEntrance(
-                    progress = progress,
-                    indexFromLeft = hdIdx,
-                    totalItems = totalItems
-                )
+                icon = painterResource(R.drawable.ic_quality_hd)
             )
         }
         if (has4K) {
@@ -323,12 +278,7 @@ fun QualitySelectMenu(
                 label = "4K",
                 color = BtnColors.K4,
                 onClick = onSelect4K,
-                icon = painterResource(R.drawable.ic_quality_4k),
-                modifier = Modifier.staggeredActionEntrance(
-                    progress = progress,
-                    indexFromLeft = k4Idx,
-                    totalItems = totalItems
-                )
+                icon = painterResource(R.drawable.ic_quality_4k)
             )
         }
     }
@@ -338,8 +288,7 @@ fun QualitySelectMenu(
 fun DeleteConfirmMenu(
     onCancel: () -> Unit,
     onConfirm: () -> Unit,
-    modifier: Modifier = Modifier,
-    progress: Float = LocalActionMenuProgress.current
+    modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -361,24 +310,14 @@ fun DeleteConfirmMenu(
                 label = "Cancel",
                 color = BtnColors.Cancel,
                 onClick = onCancel,
-                icon = painterResource(R.drawable.ic_action_cancel),
-                modifier = Modifier.staggeredActionEntrance(
-                    progress = progress,
-                    indexFromLeft = 0,
-                    totalItems = 2
-                )
+                icon = painterResource(R.drawable.ic_action_cancel)
             )
             ActionCircleButton(
                 label = "Delete",
                 color = BtnColors.Delete,
                 onClick = onConfirm,
                 icon = painterResource(R.drawable.ic_delete_trash),
-                strongHaptic = true,
-                modifier = Modifier.staggeredActionEntrance(
-                    progress = progress,
-                    indexFromLeft = 1,
-                    totalItems = 2
-                )
+                strongHaptic = true
             )
         }
     }

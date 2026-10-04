@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import com.example.ui.ScreenState
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -276,12 +277,15 @@ fun SettingsScreen(
         } else if (currentSection != SettingsSection.MAIN_MENU) {
             currentSection = SettingsSection.MAIN_MENU
         } else {
-            viewModel.navigateBack()
+            val handled = viewModel.navigateBack()
+            if (!handled) {
+                viewModel.navigateTo(ScreenState.Home)
+            }
         }
     }
 
-    // Intercept hardware/gesture back press when inside a sub-category or when backstack has items
-    BackHandler(enabled = currentSection != SettingsSection.MAIN_MENU || sectionBackStack.isNotEmpty()) {
+    // Intercept hardware/gesture back press consistently across Settings and all sub-categories
+    BackHandler(enabled = true) {
         handleBack()
     }
 

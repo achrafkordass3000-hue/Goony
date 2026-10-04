@@ -121,17 +121,17 @@ fun MainAppShell(viewModel: MainViewModel) {
 
     val topBarMap = remember { mutableStateMapOf<ScreenState, @Composable () -> Unit>() }
     val topBarContent = remember(currentScreen) {
+        val state = mutableStateOf<(@Composable () -> Unit)?>(null)
         object : MutableState<(@Composable () -> Unit)?> {
-            private var _value: (@Composable () -> Unit)? = null
             override var value: (@Composable () -> Unit)?
-                get() = _value
+                get() = state.value
                 set(newValue) {
-                    _value = newValue
+                    state.value = newValue
                     if (newValue != null) {
                         topBarMap[currentScreen] = newValue
                     }
                 }
-            override fun component1(): (@Composable () -> Unit)? = value
+            override fun component1(): (@Composable () -> Unit)? = state.value
             override fun component2(): ((@Composable () -> Unit)?) -> Unit = { value = it }
         }
     }

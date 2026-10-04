@@ -207,6 +207,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             screenStack.removeAt(screenStack.size - 1)
             _screenState.value = screenStack.last()
             return true
+        } else if (_screenState.value != ScreenState.Home) {
+            _navDirection.value = NavigationDirection.BACK
+            screenStack.clear()
+            screenStack.add(ScreenState.Home)
+            _screenState.value = ScreenState.Home
+            return true
         }
         return false
     }
@@ -949,7 +955,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private val _isSavingProgress = MutableStateFlow(false)
+    val isSavingProgress: StateFlow<Boolean> = _isSavingProgress.asStateFlow()
+
+    private val _saveCurrentIndex = MutableStateFlow(0)
+    val saveCurrentIndex: StateFlow<Int> = _saveCurrentIndex.asStateFlow()
+
+    private val _saveTotalCount = MutableStateFlow(0)
+    val saveTotalCount: StateFlow<Int> = _saveTotalCount.asStateFlow()
+
+    private val _saveCurrentTitle = MutableStateFlow("")
+    val saveCurrentTitle: StateFlow<String> = _saveCurrentTitle.asStateFlow()
+
     fun saveSelectedStashScenes(onComplete: (Int) -> Unit) {
+        saveSelectedStashScenesWithProgress(fetchTorrents = false, onComplete = onComplete)
+    }
+
+    fun saveSelectedStashScenesWithProgress(fetchTorrents: Boolean, onComplete: (Int) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             val selectedIds = _stashSelectedSceneIds.value
             if (selectedIds.isEmpty()) return@launch
@@ -957,24 +979,77 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val scenesToSave = _stashScenesList.value.filter { selectedIds.contains(it.id) }
             if (scenesToSave.isEmpty()) return@launch
 
-            val allExistingActors = repository.allActors.first()
-            val allExistingStudios = repository.allStudios.first()
-            val allExistingLinks = repository.allLinks.first()
+            withContext(Dispatchers.Main) {
+                _saveTotalCount.value = scenesToSave.size
+                _saveCurrentIndex.value = 0
+                _saveCurrentTitle.value = ""
+                _isSavingProgress.value = true
+            }
+
+            val allExistingActors = allActors.value
+            val allExistingStudios = allStudios.value
+            val allExistingLinks = allLinks.value
 
             val newActorsMap = mutableMapOf<String, ActorEntity>()
             val newStudiosMap = mutableMapOf<String, StudioEntity>()
             val linksToInsert = mutableListOf<LinkEntity>()
 
             val selectedPerf = _stashSelectedPerformer.value
+            val context = getApplication<Application>()
 
-            for (scene in scenesToSave) {
+            for ((index, scene) in scenesToSave.withIndex()) {
+                withContext(Dispatchers.Main) {
+                    _saveCurrentIndex.value = index + 1
+                    _saveCurrentTitle.value = scene.title
+                }
+
+                var magnet: String? = null
+                var url1080p: String? = null
+                var url2160p: String? = null
+                var sourceSite: String? = null
+
+                if (fetchTorrents) {
+                    try {
+                        val actors = scene.femalePerformers.map { it.name }
+                        val studios = listOfNotNull(scene.studioName)
+                        val dateMs = StashDbApiService.parseDateToMillis(scene.date)
+                        val dateStr = com.example.network.torrent.DatePatterns.formatDateStr(dateMs)
+                        val datePatterns = com.example.network.torrent.DatePatterns.generatePatterns(
+                            dateStr = dateStr,
+                            targetDateMs = dateMs
+                        )
+                        val queries = com.example.network.torrent.QueryBuilder.buildCascadeQueries(
+                            title = scene.title,
+                            actors = actors,
+                            studios = studios,
+                            dateStr = dateStr,
+                            extraSearchText = ""
+                        )
+                        val searchRes = com.example.network.torrent.TorrentScraper.executeQueriesLoop(
+                            queries = queries,
+                            datePatterns = datePatterns,
+                            studios = studios,
+                            actors = actors,
+                            context = context
+                        )
+                        if (searchRes != null && searchRes.hasResult) {
+                            magnet = searchRes.magnet1080p ?: searchRes.magnet2160p
+                            url1080p = searchRes.url1080p
+                            url2160p = searchRes.url2160p
+                            sourceSite = searchRes.sourceSite
+                        }
+                    } catch (e: Exception) {
+                        // Ignore torrent fetch failure and save metadata anyway
+                    }
+                }
+
                 // 1. Process female performers (Place selected/searched performer at index 0)
                 val sortedPerformers = if (selectedPerf != null) {
-                    val matching = scene.femalePerformers.filter { 
-                        it.id == selectedPerf.id || it.name.trim().equals(selectedPerf.name.trim(), ignoreCase = true) 
+                    val matching = scene.femalePerformers.filter { perf: StashPerformer -> 
+                        perf.id == selectedPerf.id || perf.name.trim().equals(selectedPerf.name.trim(), ignoreCase = true) 
                     }
-                    val others = scene.femalePerformers.filterNot { 
-                        it.id == selectedPerf.id || it.name.trim().equals(selectedPerf.name.trim(), ignoreCase = true) 
+                    val others = scene.femalePerformers.filterNot { perf: StashPerformer -> 
+                        perf.id == selectedPerf.id || perf.name.trim().equals(selectedPerf.name.trim(), ignoreCase = true) 
                     }
                     matching + others
                 } else {
@@ -1052,6 +1127,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         stashDbId = scene.id,
                         title = scene.title,
                         coverImage = if (existingLink.coverImage.isBlank()) (scene.coverUrl ?: "") else existingLink.coverImage,
+                        magnet = magnet ?: existingLink.magnet,
+                        torrentUrlHD = url1080p ?: existingLink.torrentUrlHD,
+                        torrentUrl4K = url2160p ?: existingLink.torrentUrl4K,
+                        torrentSiteName = sourceSite ?: existingLink.torrentSiteName,
                         actorIds = (actorIds + existingLink.actorIds).distinct(),
                         studioIds = (studioIds + existingLink.studioIds).distinct(),
                         assignedDate = existingLink.assignedDate ?: parsedDate
@@ -1062,6 +1141,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         stashDbId = scene.id,
                         title = scene.title,
                         coverImage = scene.coverUrl ?: "",
+                        magnet = magnet,
+                        torrentUrlHD = url1080p,
+                        torrentUrl4K = url2160p,
+                        torrentSiteName = sourceSite,
                         actorIds = actorIds.distinct(),
                         studioIds = studioIds.distinct(),
                         assignedDate = parsedDate
@@ -1084,6 +1167,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             _stashSelectedSceneIds.value = emptySet()
             withContext(Dispatchers.Main) {
+                _isSavingProgress.value = false
                 onComplete(linksToInsert.size)
             }
         }
